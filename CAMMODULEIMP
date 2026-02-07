@@ -1,3 +1,11 @@
+STREAM LINK
 <img id="stream" src="http://192.168.55.105:81/stream" crossorigin=""> 
 
-http://192.168.55.105/control?var=led_intensity&val=0 LIGHT ON OF
+HVGA RSOULUTIN
+http://192.168.55.105/control?var=framesize&val=9
+
+QUALITY 12
+http://192.168.55.105/control?var=quality&val=15
+
+LIGHT ON OF
+http://192.168.55.105/control?var=led_intensity&val=0
