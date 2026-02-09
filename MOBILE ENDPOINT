@@ -1,0 +1,2 @@
+To view video: Go to http://[IP]:8888/video in your browser
+To zoom remotely: Open http://[IP]:8888/zoom?ratio=[VALUE] in another browser tab
