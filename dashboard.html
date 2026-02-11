@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATLAS Rover Mission Control</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        :root {
+            --bg-dark: #0d0d0d;
+            --bg-darker: #000000;
+            --panel-bg: rgba(20, 20, 20, 0.95);
+            --panel-border: rgba(120, 120, 120, 0.2);
+
+            --text-primary: #e5e5e5;
+            --text-secondary: #999999;
+            --text-dim: #666666;
+
+            --accent-cyan: #5a9fd4;
+            --accent-cyan-glow: rgba(90, 159, 212, 0.15);
+            --accent-green: #6b9b6e;
+            --accent-yellow: #d4a54a;
+            --accent-orange: #d47a5a;
+            --accent-red: #d46060;
+
+            --font-display: 'Orbitron', sans-serif;
+            --font-heading: 'Rajdhani', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-heading);
+            background: linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-dark) 100%);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(180deg, rgba(15, 20, 35, 0.98) 0%, rgba(10, 14, 26, 0.95) 100%);
+            border-bottom: 2px solid var(--accent-cyan);
+            box-shadow: 0 4px 20px rgba(0, 240, 255, 0.1);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    var(--accent-cyan) 20%,
+                    var(--accent-cyan) 80%,
+                    transparent 100%);
+            animation: scanline 3s linear infinite;
+        }
+
+        @keyframes scanline {
+
+            0%,
+            100% {
+                opacity: 0.3;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .brand-logo {
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-green) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 20px var(--accent-cyan-glow);
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+
+            0%,
+            100% {
+                filter: drop-shadow(0 0 8px var(--accent-cyan-glow));
+            }
+
+            50% {
+                filter: drop-shadow(0 0 15px var(--accent-cyan-glow));
+            }
+        }
+
+        .brand-subtitle {
+            font-family: var(--font-heading);
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .header-info {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--panel-border);
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .status-indicator.connected {
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+        }
+
+        .status-indicator.disconnected {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        .status-indicator.connected .status-dot {
+            background: var(--accent-green);
+        }
+
+        .status-indicator.disconnected .status-dot {
+            background: var(--accent-red);
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 0.7;
+            }
+        }
+
+        /* Main Grid */
+        .main-container {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 12px;
+            padding: 12px;
+            height: calc(100vh - 74px);
+        }
+
+        /* Panel Styles */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    var(--accent-cyan) 50%,
+                    transparent 100%);
+            opacity: 0.5;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--panel-border);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-heading);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text-primary);
+        }
+
+        .panel-title i {
+            font-size: 18px;
+            color: var(--accent-cyan);
+        }
+
+        .panel-badge {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            padding: 3px 8px;
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 3px;
+            color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+        }
+
+        .panel-content {
+            flex: 1;
+            padding: 16px;
+            overflow: auto;
+        }
+
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .panel-content::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .panel-content::-webkit-scrollbar-thumb {
+            background: var(--panel-border);
+            border-radius: 3px;
+        }
+
+        /* Video Panel */
+        #video-panel {
+            grid-row: 1 / 3;
+            grid-column: 1;
+        }
+
+        #video-container {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #live-feed {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            line-height: 1.8;
+        }
+
+        .video-overlay-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .video-overlay-label {
+            color: var(--text-dim);
+        }
+
+        .video-overlay-value {
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        /* Control Panels */
+        #control-panel {
+            grid-row: 1;
+            grid-column: 2;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-label i {
+            color: var(--accent-cyan);
+            font-size: 14px;
+        }
+
+        /* D-Pad */
+        .dpad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 56px);
+            grid-template-rows: repeat(3, 56px);
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .dpad-btn {
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.05) 0%, rgba(0, 240, 255, 0.02) 100%);
+            border: 1.5px solid var(--panel-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dpad-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, var(--accent-cyan-glow) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .dpad-btn:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-2px);
+        }
+
+        .dpad-btn:hover::before {
+            opacity: 0.3;
+        }
+
+        .dpad-btn:active {
+            background: var(--accent-cyan);
+            color: var(--bg-dark);
+            transform: translateY(0) scale(0.95);
+        }
+
+        .dpad-btn:active::before {
+            opacity: 0;
+        }
+
+        #btn-up {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        #btn-left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        #btn-stop {
+            grid-column: 2;
+            grid-row: 2;
+            background: linear-gradient(135deg, rgba(255, 51, 51, 0.1) 0%, rgba(255, 51, 51, 0.05) 100%);
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        #btn-stop:hover {
+            border-color: var(--accent-red);
+        }
+
+        #btn-stop:active {
+            background: var(--accent-red);
+            color: var(--bg-dark);
+        }
+
+        #btn-right {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        #btn-down {
+            grid-column: 2;
+            grid-row: 3;
+        }
+
+        /* Sliders */
+        .slider-container {
+            margin-bottom: 14px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .slider-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .slider-value {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            min-width: 40px;
+            text-align: right;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(to right, var(--panel-border) 0%, var(--accent-cyan) 100%);
+            border-radius: 3px;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            position: relative;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--bg-dark);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--bg-dark);
+        }
+
+        /* Camera Panel */
+        #camera-panel {
+            grid-row: 2;
+            grid-column: 2;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .zoom-btn {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.05) 0%, rgba(0, 240, 255, 0.02) 100%);
+            border: 1.5px solid var(--panel-border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 16px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        .zoom-btn:active {
+            background: var(--accent-cyan);
+            color: var(--bg-dark);
+        }
+
+        /* Telemetry Panel */
+        #telemetry-panel {
+            grid-row: 1;
+            grid-column: 3;
+        }
+
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .tele-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--panel-border);
+            border-left: 3px solid var(--accent-cyan);
+            border-radius: 4px;
+            padding: 10px 12px;
+            transition: all 0.2s;
+        }
+
+        .tele-card:hover {
+            border-left-color: var(--accent-green);
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        .tele-label {
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+        }
+
+        .tele-value {
+            font-family: var(--font-mono);
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+        }
+
+        /* Navigation Panel */
+        #nav-panel {
+            grid-row: 2;
+            grid-column: 3;
+        }
+
+        #map {
+            height: 350px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .radar-container {
+            position: relative;
+            width: 100%;
+            max-width: 160px;
+            margin: 0 auto;
+            aspect-ratio: 1;
+        }
+
+        .radar-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .radar-circle {
+            fill: none;
+            stroke: var(--panel-border);
+            stroke-width: 1;
+        }
+
+        .radar-line {
+            stroke: var(--panel-border);
+            stroke-width: 1;
+        }
+
+        .obstacle-dot {
+            transition: all 0.3s;
+        }
+
+        .obstacle-dot.clear {
+            fill: var(--accent-green);
+            opacity: 0.5;
+        }
+
+        .obstacle-dot.blocked {
+            fill: var(--accent-red);
+            opacity: 1;
+            animation: alert-pulse 0.8s ease-in-out infinite;
+        }
+
+        @keyframes alert-pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.4);
+            }
+        }
+
+        .leaflet-control-zoom {
+            border: 1px solid var(--panel-border) !important;
+        }
+
+        .leaflet-bar a {
+            background: var(--panel-bg) !important;
+            color: var(--accent-cyan) !important;
+            border-bottom: 1px solid var(--panel-border) !important;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="brand">
+            <div>
+                <div class="brand-logo">ATLAS</div>
+                <div class="brand-subtitle">Mission Control Terminal</div>
+            </div>
+        </div>
+        <div class="header-info">
+            <div id="status-indicator" class="status-indicator disconnected">
+                <div class="status-dot"></div>
+                <span id="status-text">Disconnected</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Video Feed -->
+        <div class="panel" id="video-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="ph-bold ph-video-camera"></i>
+                    <span>Live Video Feed</span>
+                </div>
+                <div class="panel-badge">STREAM</div>
+            </div>
+            <div class="panel-content" style="padding: 0;">
+                <div id="video-container">
+                    <img id="live-feed" src="http://10.49.229.251:8888/video?feed=true" alt="Video Stream">
+                    <div class="video-overlay">
+                        <div class="video-overlay-row">
+                            <span class="video-overlay-label">GPS:</span>
+                            <span class="video-overlay-value" id="overlay-gps">--</span>
+                        </div>
+                        <div class="video-overlay-row">
+                            <span class="video-overlay-label">SAT:</span>
+                            <span class="video-overlay-value" id="overlay-sat">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Motor & Speed Controls -->
+        <div class="panel" id="control-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="ph-bold ph-game-controller"></i>
+                    <span>Movement Control</span>
+                </div>
+                <div class="panel-badge">ACTIVE</div>
+            </div>
+            <div class="panel-content">
+                <div class="control-group">
+                    <div class="control-label">
+                        <i class="ph-bold ph-arrows-out-cardinal"></i>
+                        Direction
+                    </div>
+                    <div class="dpad-container">
+                        <button id="btn-up" class="dpad-btn"><i class="ph-bold ph-arrow-up"></i></button>
+                        <button id="btn-left" class="dpad-btn"><i class="ph-bold ph-arrow-left"></i></button>
+                        <button id="btn-stop" class="dpad-btn"><i class="ph-bold ph-stop"></i></button>
+                        <button id="btn-right" class="dpad-btn"><i class="ph-bold ph-arrow-right"></i></button>
+                        <button id="btn-down" class="dpad-btn"><i class="ph-bold ph-arrow-down"></i></button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <div class="slider-container">
+                        <div class="slider-header">
+                            <span class="slider-label">Motor Speed</span>
+                            <span class="slider-value" id="speed-val">150</span>
+                        </div>
+                        <input type="range" id="speed-slider" min="0" max="255" value="150">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Controls -->
+        <div class="panel" id="camera-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="ph-bold ph-camera-rotate"></i>
+                    <span>Camera Control</span>
+                </div>
+                <div class="panel-badge">SERVO</div>
+            </div>
+            <div class="panel-content">
+                <div class="slider-container">
+                    <div class="slider-header">
+                        <span class="slider-label">Pan (Horizontal)</span>
+                        <span class="slider-value" id="pan-val">90°</span>
+                    </div>
+                    <input type="range" id="pan-slider" min="0" max="180" value="90">
+                </div>
+                <div class="slider-container">
+                    <div class="slider-header">
+                        <span class="slider-label">Tilt (Vertical)</span>
+                        <span class="slider-value" id="tilt-val">90°</span>
+                    </div>
+                    <input type="range" id="tilt-slider" min="0" max="180" value="90">
+                </div>
+                <div class="control-label">
+                    <i class="ph-bold ph-magnifying-glass"></i>
+                    Digital Zoom
+                </div>
+                <div class="zoom-controls">
+                    <button id="zoom-out" class="zoom-btn"><i class="ph-bold ph-minus"></i></button>
+                    <button id="zoom-in" class="zoom-btn"><i class="ph-bold ph-plus"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text-to-Speech -->
+        <div class="panel" id="tts-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="ph-bold ph-microphone"></i>
+                    <span>Text-to-Speech</span>
+                </div>
+                <div class="panel-badge">SPEAK</div>
+            </div>
+            <div class="panel-content">
+                <div class="control-group">
+                    <div class="control-label">
+                        <i class="ph-bold ph-chat-text"></i>
+                        Message
+                    </div>
+                    <input type="text" id="speak-text" placeholder="Enter text to speak..." style="width: 100%; padding: 12px; border: 1px solid rgba(255,255,255,0.1); 
+                                  background: rgba(255,255,255,0.05); color: #fff; border-radius: 8px;
+                                  font-size: 14px; margin-bottom: 12px;">
+                    <button id="speak-btn" class="action-btn" style="width: 100%; padding: 12px; 
+                            background: linear-gradient(135deg, #00ff88, #00cc6a); color: #0A1128; 
+                            border: none; border-radius: 8px; font-weight: 600; cursor: pointer;
+                            transition: all 0.3s;">
+                        <i class="ph-bold ph-speaker-high"></i> Speak
+                    </button>
+                </div>
+                <div class="control-group"
+                    style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <div class="control-label">
+                        <i class="ph-bold ph-microphone"></i>
+                        Live Microphone
+                    </div>
+                    <button id="audio-toggle" class="action-btn" style="width: 100%; padding: 12px; 
+                            background: rgba(255,255,255,0.1); color: #fff; 
+                            border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; 
+                            font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                        <i class="ph-bold ph-play"></i> <span id="audio-status">Enable Mic Listening</span>
+                    </button>
+                    <audio id="audio-player" style="display: none;"></audio>
+                </div>
+            </div>
+        </div>
+
+        <!-- Telemetry -->
+        <div class="panel" id="telemetry-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="ph-bold ph-chart-line"></i>
+                    <span>Sensor Data</span>
+                </div>
+                <div class="panel-badge">LIVE</div>
+            </div>
+            <div class="panel-content">
+                <div class="telemetry-grid">
+                    <div class="tele-card">
+                        <div class="tele-label">Heading</div>
+                        <div class="tele-value" id="imu-heading">--°</div>
+                    </div>
+                    <div class="tele-card">
+                        <div class="tele-label">Satellites</div>
+                        <div class="tele-value" id="tele-sat">0</div>
+                    </div>
+                    <div class="tele-card">
+                        <div class="tele-label">Accel X</div>
+                        <div class="tele-value" id="imu-ax">--</div>
+                    </div>
+                    <div class="tele-card">
+                        <div class="tele-label">Accel Y</div>
+                        <div class="tele-value" id="imu-ay">--</div>
+                    </div>
+                    <div class="tele-card">
+                        <div class="tele-label">Accel Z</div>
+                        <div class="tele-value" id="imu-az">--</div>
+                    </div>
+                    <div class="tele-card">
+                        <div class="tele-label">Gyro X</div>
+                        <div class="tele-value" id="imu-gx">--</div>
+                    </div>
+                    <div class="tele-card">
+                        <div class="tele-label">Gyro Y</div>
+                        <div class="tele-value" id="imu-gy">--</div>
+                    </div>
+                    <div class="tele-card">
+                        <div class="tele-label">Gyro Z</div>
+                        <div class="tele-value" id="imu-gz">--</div>
+                    </div>
+                    <div class="tele-card">
+                        <div class="tele-label">GPS Lat</div>
+                        <div class="tele-value" id="imu-lat">--</div>
+                    </div>
+                    <div class="tele-card">
+                        <div class="tele-label">GPS Lng</div>
+                        <div class="tele-value" id="imu-lng">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation with Satellite Map -->
+        <div class="panel" id="nav-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="ph-bold ph-map-pin"></i>
+                    <span>Live Location</span>
+                </div>
+                <div class="panel-badge">SATELLITE</div>
+            </div>
+            <div class="panel-content" style="padding: 0;">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ESP32_IP = '10.49.229.106';
+        const MOBILE_IP = '10.49.229.251';  // Mobile device serving IMU and camera
+        const CAMERA_IP = '10.49.229.251:8888';
+        const API_BASE = `http://${ESP32_IP}`;
+        const IMU_DATA_URL = `http://${MOBILE_IP}:8888/imudata`;
+        const UPDATE_INTERVAL = 200;
+
+        let map, marker, directionLine;
+        let isConnected = false;
+
+        function initMap() {
+            map = L.map('map', {
+                zoomControl: true,
+                attributionControl: false
+            }).setView([0, 0], 2);
+
+            // Google Satellite Tiles
+            L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+            }).addTo(map);
+
+            // Custom marker icon for rover
+            const roverIcon = L.divIcon({
+                className: 'rover-marker',
+                html: '<div style="background: #00ff88; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,255,136,0.8);"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            marker = L.marker([0, 0], { icon: roverIcon }).addTo(map);
+
+            // Direction indicator line (initially hidden)
+            directionLine = L.polyline([], {
+                color: '#ff0044',
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '10, 5'
+            }).addTo(map);
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/status`);
+                const data = await res.json();
+
+                if (!isConnected) {
+                    isConnected = true;
+                    document.getElementById('status-indicator').className = 'status-indicator connected';
+                    document.getElementById('status-text').textContent = 'Connected';
+                }
+
+                updateUI(data);
+            } catch (err) {
+                if (isConnected) {
+                    isConnected = false;
+                    document.getElementById('status-indicator').className = 'status-indicator disconnected';
+                    document.getElementById('status-text').textContent = 'Disconnected';
+                }
+            }
+        }
+
+        function updateUI(data) {
+            if (data.gps && data.gps.valid) {
+                const lat = data.gps.lat.toFixed(6);
+                const lng = data.gps.lng.toFixed(6);
+                document.getElementById('overlay-gps').textContent = `${lat}, ${lng}`;
+                document.getElementById('overlay-sat').textContent = data.gps.satellites;
+                document.getElementById('tele-sat').textContent = data.gps.satellites;
+
+                marker.setLatLng([data.gps.lat, data.gps.lng]);
+                map.setView([data.gps.lat, data.gps.lng], 18);
+            }
+
+            if (data.ultrasonic) {
+                const sensorMap = {
+                    'front': 'obs-front',
+                    'front_left': 'obs-front-left',
+                    'front_right': 'obs-front-right',
+                    'back': 'obs-back',
+                    'left': 'obs-left',
+                    'right': 'obs-right'
+                };
+
+                data.ultrasonic.forEach(sensor => {
+                    const dotId = sensorMap[sensor.name];
+                    const dot = document.getElementById(dotId);
+                    if (dot) {
+                        dot.classList.toggle('clear', !sensor.obstacle);
+                        dot.classList.toggle('blocked', sensor.obstacle);
+                    }
+                });
+            }
+        }
+
+        async function fetchIMUData() {
+            try {
+                const response = await fetch(IMU_DATA_URL);
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const data = await response.json();
+
+                // Update Heading (Compass)
+                if (data.heading !== undefined) {
+                    document.getElementById('imu-heading').textContent = `${data.heading.toFixed(1)}°`;
+                }
+
+                // Update Accelerometer
+                if (data.accX !== undefined) {
+                    document.getElementById('imu-ax').textContent = data.accX.toFixed(2);
+                    document.getElementById('imu-ay').textContent = data.accY.toFixed(2);
+                    document.getElementById('imu-az').textContent = data.accZ.toFixed(2);
+                }
+
+                // Update Gyroscope
+                if (data.gyroX !== undefined) {
+                    document.getElementById('imu-gx').textContent = data.gyroX.toFixed(2);
+                    document.getElementById('imu-gy').textContent = data.gyroY.toFixed(2);
+                    document.getElementById('imu-gz').textContent = data.gyroZ.toFixed(2);
+                }
+
+                // Update GPS from IMU data and map marker
+                if (data.lat !== undefined && data.lng !== undefined) {
+                    document.getElementById('imu-lat').textContent = data.lat.toFixed(6);
+                    document.getElementById('imu-lng').textContent = data.lng.toFixed(6);
+
+                    // Update overlay GPS display
+                    document.getElementById('overlay-gps').textContent = `${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`;
+
+                    // Update map marker position
+                    const position = [data.lat, data.lng];
+                    marker.setLatLng(position);
+
+                    // Update direction line if heading is available
+                    if (data.heading !== undefined) {
+                        // Calculate endpoint of direction line (50 meters in heading direction)
+                        const heading = data.heading; // degrees from north
+                        const distance = 0.0005; // ~50 meters in degrees
+
+                        // Convert heading to radians (0° = North, clockwise)
+                        const rad = (heading * Math.PI) / 180;
+
+                        // Calculate new lat/lng
+                        const newLat = data.lat + (distance * Math.cos(rad));
+                        const newLng = data.lng + (distance * Math.sin(rad) / Math.cos(data.lat * Math.PI / 180));
+
+                        // Update direction line
+                        directionLine.setLatLngs([position, [newLat, newLng]]);
+                    }
+
+                    // Auto-zoom to satellite view on first valid GPS
+                    if (map.getZoom() < 15) {
+                        map.setView(position, 18);
+                    } else {
+                        map.panTo(position);
+                    }
+                }
+
+            } catch (error) {
+                console.error("Failed to fetch IMU data from mobile:", error);
+            }
+        }
+
+        async function sendMove(direction) {
+            const speed = parseInt(document.getElementById('speed-slider').value);
+            try {
+                await fetch(`${API_BASE}/move`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ direction, speed })
+                });
+            } catch (err) {
+                console.error('Move failed:', err);
+            }
+        }
+
+        async function sendServo(type, angle) {
+            try {
+                await fetch(`${API_BASE}/servo/${type}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ angle })
+                });
+            } catch (err) {
+                console.error('Servo failed:', err);
+            }
+        }
+
+        // Motor Controls
+        document.getElementById('btn-up').addEventListener('mousedown', () => sendMove('forward'));
+        document.getElementById('btn-down').addEventListener('mousedown', () => sendMove('backward'));
+        document.getElementById('btn-left').addEventListener('mousedown', () => sendMove('left'));
+        document.getElementById('btn-right').addEventListener('mousedown', () => sendMove('right'));
+        document.getElementById('btn-stop').addEventListener('click', () => sendMove('stop'));
+
+        ['btn-up', 'btn-down', 'btn-left', 'btn-right'].forEach(id => {
+            document.getElementById(id).addEventListener('mouseup', () => sendMove('stop'));
+            document.getElementById(id).addEventListener('mouseleave', () => sendMove('stop'));
+        });
+
+        // Speed Slider
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            document.getElementById('speed-val').textContent = e.target.value;
+        });
+
+        // Camera Controls
+        document.getElementById('pan-slider').addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.getElementById('pan-val').textContent = `${val}°`;
+            sendServo('pan', parseInt(val));
+        });
+
+        document.getElementById('tilt-slider').addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.getElementById('tilt-val').textContent = `${val}°`;
+            sendServo('tilt', parseInt(val));
+        });
+
+        // Text-to-Speech
+        const speakText = document.getElementById('speak-text');
+        const speakBtn = document.getElementById('speak-btn');
+
+        async function speak() {
+            const text = speakText.value.trim();
+            if (!text) {
+                alert('Please enter text to speak');
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://${MOBILE_IP}:8888/speak?text=${encodeURIComponent(text)}`);
+                if (response.ok) {
+                    speakText.value = '';  // Clear after speaking
+                    speakBtn.style.background = 'linear-gradient(135deg, #00ff88, #00cc6a)';
+                    setTimeout(() => {
+                        speakBtn.style.background = 'linear-gradient(135deg, #00ff88, #00cc6a)';
+                    }, 200);
+                } else {
+                    console.error('Speak request failed:', response.status);
+                }
+            } catch (err) {
+                console.error('Speak failed:', err);
+                alert('Failed to send speak command. Check mobile connection.');
+            }
+        }
+
+        speakBtn.addEventListener('click', speak);
+        speakText.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') speak();
+        });
+
+        // Live Microphone Audio Player
+        const audioPlayer = document.getElementById('audio-player');
+        const audioToggle = document.getElementById('audio-toggle');
+        const audioStatus = document.getElementById('audio-status');
+        let audioPlaying = false;
+
+        audioToggle.addEventListener('click', () => {
+            if (!audioPlaying) {
+                // Start audio
+                audioPlayer.src = `http://${MOBILE_IP}:8888/audio.wav`;
+                audioPlayer.style.display = 'block';
+                audioPlayer.play().then(() => {
+                    audioPlaying = true;
+                    audioStatus.textContent = 'Stop Mic Listening';
+                    audioToggle.querySelector('i').className = 'ph-bold ph-stop';
+                    audioToggle.style.background = 'linear-gradient(135deg, #ff4444, #cc0000)';
+                }).catch(err => {
+                    console.error('Audio play failed:', err);
+                    alert('Failed to start audio. Check mobile connection.');
+                });
+            } else {
+                // Stop audio
+                audioPlayer.pause();
+                audioPlayer.src = '';
+                audioPlayer.style.display = 'none';
+                audioPlaying = false;
+                audioStatus.textContent = 'Enable Mic Listening';
+                audioToggle.querySelector('i').className = 'ph-bold ph-play';
+                audioToggle.style.background = 'rgba(255,255,255,0.1)';
+            }
+        });
+
+        // Zoom Controls
+        document.getElementById('zoom-in').addEventListener('click', async () => {
+            try {
+                await fetch(`http://${MOBILE_IP}:8888/zoom/in`);
+            } catch (err) {
+                console.error('Zoom in failed:', err);
+            }
+        });
+
+        document.getElementById('zoom-out').addEventListener('click', async () => {
+            try {
+                await fetch(`http://${MOBILE_IP}:8888/zoom/out`);
+            } catch (err) {
+                console.error('Zoom out failed:', err);
+            }
+        });
+
+        // Initialize
+        initMap();
+        setInterval(fetchStatus, UPDATE_INTERVAL);
+        setInterval(fetchIMUData, UPDATE_INTERVAL);
+        fetchStatus();
+        fetchIMUData();
+    </script>
+</body>
+
+</html>
