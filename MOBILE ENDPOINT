@@ -1,2 +1,24 @@
 To view video: Go to http://[IP]:8888/video in your browser
 To zoom remotely: Open http://[IP]:8888/zoom?ratio=[VALUE] in another browser tab
+
+
+All Active API Endpoints Summary
+| Feature | Endpoint URL | Method | Purpose | | :--- | :--- | :--- | :--- | | Web Dashboard | http://[IP]:8888/video | GET | Opens the full UI in a browser tab. | | Raw Video | http://[IP]:8888/video?feed=true | GET | For OpenCV or <img> source. | | Raw Audio | http://[IP]:8888/audio.wav | GET | Real-time 44.1kHz Mic stream. | | Telemetry | http://[IP]:8888/imudata | GET | Returns JSON (IMU, GPS, Battery). | | Speaker | http://[IP]:8888/speak?text=... | GET | Makes the phone speak text out loud. | | Zoom In | http://[IP]:8888/zoom/in | GET | Increments zoom by 0.5x. | | Zoom Out | http://[IP]:8888/zoom/out | GET | Decrements zoom by 0.5x. | | Set Zoom | http://[IP]:8888/video?zoom=5.0 | GET | Sets exact zoom ratio (1.0 to 10.0). |
+
+This is the structure of the data returned by http://[IP]:8888/imudata. It updates in real-time (millisecond level).
+JSON
+{
+  "accX": 0.012, 
+  "accY": 9.806, 
+  "accZ": 0.450,
+  "gyroX": 0.001,
+  "gyroY": -0.002, 
+  "gyroZ": 0.000,
+  "magX": -25.4, 
+  "magY": 12.1, 
+  "magZ": 40.5,
+  "heading": 185.5,
+  "lat": 12.971598,
+  "lng": 77.594562,
+  "battery": 85
+}
